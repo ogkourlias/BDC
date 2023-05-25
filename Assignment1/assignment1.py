@@ -55,7 +55,7 @@ def calc_avg(scores, read_count):
 
 def main():
     args = argparser()
-    scores = walk(args.fastq_files, args.n)
+    scores = walk(args.fastq_files[0], args.n)
     if args.csvfile:
         write_csv(scores, args.csvfile)
     else:
