@@ -60,6 +60,8 @@ def avg_accuracy(fastq):
     scores = [0 for _ in range(linelength)]
     read_count = 0
     with open(fastq, "r") as fastq:
+        chunksize = len(fastq.readlines()) / 4
+        print(chunksize)
         for i, line in enumerate(fastq):
             if (i + 1) % 4 == 0:
                 read_count += 1
