@@ -1,0 +1,2 @@
+Report for Assignment1 start evaluation at 2023-06-01 10:45:07.527388 with options ['-n', '4', '/data/datasets/rnaseq_data/Brazil_Brain/SPM26_R1.fastq']
+*** ASSIGNMENT assignment1.py STATUS: PASSED at 2023-06-01 11:45:26.024624 ***
