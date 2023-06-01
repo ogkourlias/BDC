@@ -1,0 +1,13 @@
+************* Module assignment1
+assignment1.py:77:0: C0304: Final newline missing (missing-final-newline)
+assignment1.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+assignment1.py:9:4: W0621: Redefining name 'argparser' from outer scope (line 7) (redefined-outer-name)
+assignment1.py:30:9: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+assignment1.py:27:11: R1732: Consider using 'with' for resource-allocating operations (consider-using-with)
+assignment1.py:48:8: C0200: Consider using enumerate instead of iterating with range and len (consider-using-enumerate)
+assignment1.py:54:4: C0103: Variable name "df" doesn't conform to snake_case naming style (invalid-name)
+assignment1.py:59:4: C0103: Variable name "df" doesn't conform to snake_case naming style (invalid-name)
+
+------------------------------------------------------------------
+Your code has been rated at 8.30/10 (previous run: 9.84/10, -1.54)
+

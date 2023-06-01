@@ -1,0 +1,26 @@
+multiprocessing.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/commons/conda/dsls/lib/python3.10/multiprocessing/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+  File "/commons/conda/dsls/lib/python3.10/multiprocessing/pool.py", line 48, in mapstar
+    return list(map(*args))
+  File "/homes/martijntest/courses/BDC/2023/to_grade/Orfeas Gkourlias/BDC/Assignment1/assignment1.py", line 49, in line_handler
+    scores[score_i] += (ord(line[score_i]) - 33)
+IndexError: string index out of range
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/homes/martijntest/courses/BDC/2023/to_grade/Orfeas Gkourlias/BDC/Assignment1/assignment1.py", line 77, in <module>
+    main()
+  File "/homes/martijntest/courses/BDC/2023/to_grade/Orfeas Gkourlias/BDC/Assignment1/assignment1.py", line 69, in main
+    scores = walk(args.fastq_files[0], args.n)
+  File "/homes/martijntest/courses/BDC/2023/to_grade/Orfeas Gkourlias/BDC/Assignment1/assignment1.py", line 38, in walk
+    scores = pool.map(line_handler, [score_lines[i:i+chunksize]
+  File "/commons/conda/dsls/lib/python3.10/multiprocessing/pool.py", line 367, in map
+    return self._map_async(func, iterable, mapstar, chunksize).get()
+  File "/commons/conda/dsls/lib/python3.10/multiprocessing/pool.py", line 774, in get
+    raise self._value
+IndexError: string index out of range
