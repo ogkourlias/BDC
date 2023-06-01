@@ -1,76 +1,84 @@
-import multiprocessing as mp
+#!/usr/bin/env python3
+
+"""python3 assignment1.py -n <aantal_cpus> [OPTIONEEL: -o <output csv file>] fastabestand1.fastq
+[fastabestand2.fastq ... fastabestandN.fastq]"""
+
+# METADATA VARIABLES
+__author__ = "Orfeas Gkourlias"
+__status__ = "WIP"
+__version__ = "0.1"
+
+# IMPORTS
 import argparse as ap
-import sys
+from pathlib import Path
+import csv
+import multiprocessing as mp
 
-import pandas as pd
 
-def argparser():
-    """Parse command line arguments."""
+# FUNCTIONS
+def arg_parse():
+    """Parse arguments"""
     argparser = ap.ArgumentParser(description="Script voor Opdracht 1 van Big Data Computing")
     argparser.add_argument("-n", action="store",
                            dest="n", required=True, type=int,
                            help="Aantal cores om te gebruiken.")
-    argparser.add_argument("-o", action="store",
-                           dest="csvfile",
-                           type=ap.FileType('w', encoding='UTF-8'),
+    argparser.add_argument("-o", action="store", dest="csvfile", type=Path,
                            required=False,
-                           help="CSV file om de output in op te slaan."
-                                " Default is output naar terminal STDOUT")
-    argparser.add_argument("fastq_files", action="store", nargs='+',
-                           help="Minstens 1 Illumina Fastq "
-                                "Format file om te verwerken")
-    args = argparser.parse_args()
-    return args
+                           help="CSV file om de output in op te slaan. Default is output naar terminal STDOUT")
+    argparser.add_argument("fastq_files", action="store", type=Path, nargs='+',
+                           help="Minstens 1 Illumina Fastq Format file om te verwerken")
+    return argparser.parse_args()
 
-def walk(file, cores):
-    """Iterate through fastqfile. NB: chunk is assumed to be multiple of 4!"""
-    pool = mp.Pool(cores)
-    read_count = 0
-    chunksize = 500_000
-    with open(file) as fastq:
-        lines = fastq.readlines()
-        score_lines = []
-        for i, line in enumerate(lines):
-            if (i + 1) % 4 == 0:
-                score_lines.append(line.strip())
-                read_count += 1
 
-        scores = pool.map(line_handler, [score_lines[i:i+chunksize]
-                                         for i in range(0, len(score_lines), chunksize)])
-        scores = [sum(score)/read_count for score in zip(*scores)]
+class AvgCalc:
+    """
+    t
+    """
 
+    def __init__(self, files, chunk_size=2, cores=12):
+        self.files = files
+        self.chunk_size = chunk_size
+        self.cores = cores
+
+    def receiver(self):
+        """
+        :return:
+        """
+        return 0
+
+    def calculate(self):
+        for file in self.files:
+            with file as fastq:
+                self.line_walker(fastq)
+
+    def line_walker(self, file):
+        with open(file) as fastq:
+            pool = mp.Pool(self.cores)
+            score_lines = []
+            lines = fastq.readlines()
+            for i, line in enumerate(lines):
+                if (i + 1) % 4 == 0:
+                    score_lines.append(line.strip())
+
+            scores = pool.map(self.score_getter, [score_lines[i:i + self.chunk_size]
+                                                  for i in range(0, len(score_lines), self.chunk_size)])
+
+            print(scores)
+
+
+    def score_getter(self, lines):
+        scores = []
+        for line in lines:
+            scores = [ord(char) - 33 for char in line]
         return scores
 
-def line_handler(lines):
-    """Calculate average accuracy for a chunk of lines."""
-    scores = [0 for _ in range(101)]
-    for line in lines:
-        for score_i in range(len(scores)):
-            scores[score_i] += (ord(line[score_i]) - 33)
-    return scores
 
-def write_csv(scores, csv_file):
-    """Write scores to csv file."""
-    df = pd.DataFrame(scores)
-    df.to_csv(csv_file, header=False)
-
-def write_to_stdout(scores):
-    """Write scores to stdout."""
-    df = pd.DataFrame(scores)
-    df.to_csv(sys.stdout, header=False)
-
-def calc_avg(scores, read_count):
-    """Calculate average accuracy."""
-    return [score / read_count for score in scores]
-
+# MAIN
 def main():
-    """Main function."""
-    args = argparser()
-    scores = walk(args.fastq_files[0], args.n)
-    if args.csvfile:
-        write_csv(scores, args.csvfile)
-    else:
-        write_to_stdout(scores)
+    """Main function"""
+    args = arg_parse()
+    calc = AvgCalc(args.fastq_files)
+    calc.calculate()
 
 
 if __name__ == "__main__":
