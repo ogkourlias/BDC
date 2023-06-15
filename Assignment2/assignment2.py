@@ -41,10 +41,19 @@ def arg_parse():
     client_args.add_argument("--port", action="store", type=int, help="The port on which the Server is listening")
     return argparser.parse_args()
 
+
 class AvgCalc:
     """
     Class containg functiosn to calculate the average Phred scores for positions.
     """
+
+    def __init__(self, args):
+        self.files = args.fastq_files
+        self.chunk_size = args.chunks
+        self.cores = args.n
+        self.fastq_files = args.fastq_files
+        self.csvfile = args.csvfile
+
     def calculate(self, files):
         """
         Function containing the primary calculation pipeline for  given files.
@@ -53,7 +62,7 @@ class AvgCalc:
             with file as fastq:
                 self.line_walker(fastq)
 
-    def line_walker(self, file, cores = 12, chunk = 5000):
+    def line_walker(self, file, cores):
         """
         Walks through the lines the given input
         :param file:
@@ -66,8 +75,8 @@ class AvgCalc:
                 if (i + 1) % 4 == 0:
                     score_lines.append(line.strip())
 
-            res = pool.map(self.score_getter, [score_lines[i:i + chunk]
-                                               for i in range(0, len(score_lines), chunk)])
+            res = pool.map(self.score_getter, [score_lines[i:i + self.chunk_size]
+                                               for i in range(0, len(score_lines), self.chunk_size)])
 
             score_list = [np.array(result[0]) for result in res]
             pos_list = [np.array(result[1]) for result in res]
@@ -78,7 +87,32 @@ class AvgCalc:
             scores_summed = np.sum(arr1, axis=0).tolist()
             pos_summed = np.sum(arr2, axis=0).tolist()
             output = [score_sum / pos_sum for score_sum, pos_sum in zip(scores_summed, pos_summed)]
-            self.write_output(output, "test.csv")
+
+    def work_division(self, lines, chunk_size):
+        res = [lines[i:i + chunk_size] for i in range(0, len(lines), chunk_size)]
+        return res
+
+    def calc_per_file(self, work):
+        lines_for_each = work
+        cores = self.cores
+        chunk = self.chunk_size
+        pool = mp.Pool(cores)
+        final = []
+        for line_list in lines_for_each:
+            work = self.work_division(line_list, chunk)
+            res = pool.map(self.score_getter, work)
+            score_list = [np.array(result[0]) for result in res]
+            pos_list = [np.array(result[1]) for result in res]
+            arr1 = np.array(
+                [np.pad(row, (0, len(max(score_list, key=len)) - len(row)), 'constant') for row in score_list])
+            arr2 = np.array(
+                [np.pad(row, (0, len(max(score_list, key=len)) - len(row)), 'constant') for row in pos_list])
+            scores_summed = np.sum(arr1, axis=0).tolist()
+            pos_summed = np.sum(arr2, axis=0).tolist()
+            output = [score_sum / pos_sum for score_sum, pos_sum in zip(scores_summed, pos_summed)]
+            final.append(output)
+
+        return final
 
     def score_getter(self, lines):
         """
@@ -102,7 +136,8 @@ class AvgCalc:
 
         return pos_scores, pos_counts
 
-    def calc_final(self, args, res):
+    def line_worker(self, work):
+        res = self.score_getter(work)
         score_list = [np.array(result[0]) for result in res]
         pos_list = [np.array(result[1]) for result in res]
         arr1 = np.array(
@@ -112,30 +147,51 @@ class AvgCalc:
         scores_summed = np.sum(arr1, axis=0).tolist()
         pos_summed = np.sum(arr2, axis=0).tolist()
         output = [score_sum / pos_sum for score_sum, pos_sum in zip(scores_summed, pos_summed)]
-        self.write_output(output, "test1.csv")
+        return output
 
-    def write_output(self, output, csvfile):
+    def files_handler(self, files):
+        file_line_list = []
+        for file in files:
+            with open(file) as fastq:
+                lines = fastq.readlines()
+                file_line_list.append([line.strip() for i, line in enumerate(lines) if (i + 1) % 4 == 0])
+
+        return file_line_list
+
+    def calc(self, res):
+        score_list = [np.array(result[0]) for result in res]
+        pos_list = [np.array(result[1]) for result in res]
+        arr1 = np.array(
+            [np.pad(row, (0, len(max(score_list, key=len)) - len(row)), 'constant') for row in score_list])
+        arr2 = np.array(
+            [np.pad(row, (0, len(max(score_list, key=len)) - len(row)), 'constant') for row in pos_list])
+        scores_summed = np.sum(arr1, axis=0).tolist()
+        pos_summed = np.sum(arr2, axis=0).tolist()
+        output = [score_sum / pos_sum for score_sum, pos_sum in zip(scores_summed, pos_summed)]
+        return output
+
+    def write_output(self, output):
         """Write scores to csv file."""
         df = pd.DataFrame(output)
-        if csvfile:
-            df.to_csv(csvfile, header=False)
+        if self.csvfile:
+            df.to_csv(self.csvfile, header=False)
         else:
             df.to_csv(sys.stdout, header=False)
+
 
 # MAIN
 def main():
     """Main function"""
     args = arg_parse()
-    avgCalc = AvgCalc()
-
-    server = mp.Process(target=runserver, args=(avgCalc.line_walker, args.fastq_files))
+    avgCalc = AvgCalc(args)
+    work = avgCalc.files_handler(args.fastq_files)
+    server = mp.Process(target=runserver, args=(avgCalc.calc_per_file, work))
     server.start()
     time.sleep(1)
-    client = mp.Process(target=runclient, args=(4,))
+    client = mp.Process(target=runclient, args=(args.n,))
     client.start()
     server.join()
     client.join()
-
 
 if __name__ == "__main__":
     main()
