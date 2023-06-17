@@ -169,6 +169,9 @@ def main():
                 else:
                     pos.append(list(map(float, line.strip().strip("[] ").replace(" ", "").split(","))))
 
+        scores = [np.array(result) for result in scores]
+        pos = [np.array(result) for result in pos]
+
         max_len = len(max(scores, key=len))
 
         arr1 = np.array([np.pad(row, (0, max_len - len(row)), 'constant') for row in scores])
