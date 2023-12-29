@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""python3 assignment1.py -n <aantal_cpus> [OPTIONEEL: -o <output csv file>] fastabestand1.fastq
+"""assignment1.py -n <aantal_cpus> -ch <chunksize> [OPTIONEEL: -o <output csv file>] fastabestand1.fastq/fastq
 [fastabestand2.fastq ... fastabestandN.fastq]"""
 
 # METADATA VARIABLES
@@ -24,6 +24,9 @@ def arg_parse():
     argparser.add_argument("-n", action="store",
                            dest="n", required=True, type=int,
                            help="Aantal cores om te gebruiken.")
+    argparser.add_argument("-ch", action="store",
+                           dest="chunks", required=True, type=int,
+                           help="Aantal chunksize om te gebruiken.")
     argparser.add_argument("-o", action="store", dest="csvfile", type=Path,
                            required=False,
                            help="CSV file om de output in op te slaan. Default is output naar terminal STDOUT")
