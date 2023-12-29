@@ -36,6 +36,14 @@ class AvgCalc:
     """
     Class containg functiosn to calculate the average Phred scores for positions.
     """
+
+    def __init__(self, args):
+        self.files = args.fastq_files
+        self.chunk_size = args.chunks
+        self.cores = args.n
+        self.fastq_files = args.fastq_files
+        self.csvfile = args.csvfile
+
     def calculate(self):
         """
         Function containing the primary calculation pipeline for  given files.
