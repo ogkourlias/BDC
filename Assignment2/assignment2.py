@@ -16,8 +16,8 @@ __version__ = "0.1"
 import sys
 import argparse as ap
 from pathlib import Path
-from demo import *
 import multiprocessing as mp
+from multiprocessing.managers import BaseManager, SyncManager
 import pandas as pd
 import numpy as np
 

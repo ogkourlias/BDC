@@ -1,16 +1,21 @@
-#!/bin/bash -l
+#!/bin/bash
 
-#SBATCH --time=00:05:00
+#SBATCH --time=06:00:00
 #SBATCH --nodes=1
-#SBATCH --exclusive
-#SBATCH --mem=0
+#SBATCH --mem=8gb
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=2
 
 source /commons/conda/conda_load.sh
-export FILE="/commons/Themas/Thema12/HPC/rnaseq.fastq";
 
-parallel --jobs 20 --pipepart --block -6 --regexp \
-         --recstart '@.*(/1| 1:.*)\n[A-Za-z\n\.~]' --recend '\n' \
-         -a $FILE python3 assignment3.py --chunker | \
-         python3 assignment3.py --combine
+input_file="SRR22537909.fasta"
+output_csv="output.csv"
+num_cores=4
+
+mkdir work
+mkdir scores
+python3 assignment3.py -s -i $input_file -ch 50 -n 4
+find work/ -type f -print | parallel -j $num_cores python3 assignment3.py -c -seq {}
+python3 assignment3.py -calc -co $output_csv -if "$(find scores/ -type f -exec echo {} \;)"
+rm -rf scores
+rm -rf work
