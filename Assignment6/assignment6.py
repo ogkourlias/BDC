@@ -18,11 +18,12 @@ import argparse
 import tabix
 import gzip
 import numpy as np
+import time
 from scipy.stats import spearmanr, pearsonr
+
 
 # FUNCTIONS
 def arg_parse():
-
     """
     Function to parse arguments.
 
@@ -45,8 +46,8 @@ def arg_parse():
     parser.add_argument("-n", "--chunk", type=int)
     return parser.parse_args()
 
-def open_tbi(input_file):
 
+def open_tbi(input_file):
     """
     Tabix file opener function.
     :input_file: Input VCF file.
@@ -56,7 +57,6 @@ def open_tbi(input_file):
 
 
 def compare(chr, start, stop, recs_i, r_handle, headers, chunksize):
-
     """
     Takes chromosome entry from nextflow process and compare record entries between two files.
     i in var name = VCF File containing all records for which you want to find hits.
@@ -174,7 +174,6 @@ def process_file(chr, i_handle, r_handle, headers, output, chunksize=1000):
     """
     # Get start and stop positions of chr selection.
     with open(output, "w") as fo:
-
         # Write headers to output file.
         fo.write(
             "var_id\t"
@@ -184,7 +183,7 @@ def process_file(chr, i_handle, r_handle, headers, output, chunksize=1000):
             + "nrhets_i\t"
             + "nrhomb_i\t"
             + "nrhoma_r\t"
-            + "nrhets_r\t" 
+            + "nrhets_r\t"
             + "nrhomb_r\t"
             + "matching\t"
             + "match_ratio\t"
@@ -355,7 +354,7 @@ def record_extract(i_record, r_record, head_idx):
         s_corr, pval = spearmanr(gt_list_i, gt_list_r)
     else:
         p_corr, s_corr = "nan", "nan"
-    
+
     if matching != 0 and sample_size != 0:
         match_ratio = matching / sample_size
     else:
@@ -496,11 +495,15 @@ def calc_hwe_old(nrhoma, nrhet, nrhomb):
 def main(args):
     """Main function"""
     # Get args.
+    start = time.time()
     args = arg_parse()
     # Get headers
     headers = header_subset(args.input_header, args.comp_header)
     # Perform comparison and write output.
     process_file(args.chr, args.file, args.reference, headers, args.output, args.chunk)
+    end = time.time()
+    with open("timings.csv", "a") as f:
+        f.write(f"{end - start},{start},{end}\n")
     # FINISH
     return 0
 

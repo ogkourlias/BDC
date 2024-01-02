@@ -13,20 +13,22 @@ __status__ = "WIP"
 __version__ = "0.1"
 
 # IMPORTS
-import sys, os
+import sys
+import os
 import argparse as ap
 from pathlib import Path
-import multiprocessing as mp
+from itertools import zip_longest
 import pandas as pd
 import numpy as np
-from itertools import zip_longest
 
 
 # FUNCTIONS
 def arg_parse():
+    """Arg parser."""
     # Generic args.
     argparser = ap.ArgumentParser(
-        description="Script voor Opdracht 2 van Big Data Computing;  Calculate PHRED scores over the network."
+        description="""Script voor Opdracht 2 van Big Data Computing;
+        Calculate PHRED scores over the network."""
     )
     mode = argparser.add_mutually_exclusive_group(required=True)
     mode.add_argument(
@@ -115,226 +117,15 @@ def arg_parse():
     return argparser.parse_args()
 
 
-class AvgCalc:
+def line_walker_client(lines):
     """
-    Class containg functiosn to calculate the average Phred scores for positions.
+    Walks through the lines the given input
+    :param file:
     """
-
-    def __init__(self, args):
-        self.files = args.input
-        self.chunk_size = args.chunksize
-        self.cores = args.n
-        self.fastq_files = args.input
-        self.csvfile = args.output
-
-    def calculate(self, files):
-        """
-        Function containing the primary calculation pipeline for  given files.
-        """
-        for file in files:
-            with file as fastq:
-                self.line_walker(fastq)
-
-    def line_walker(self, file, cores):
-        """
-        Walks through the lines the given input
-        :param file:
-        """
-        with open(file) as fastq:
-            pool = mp.Pool(cores)
-            score_lines = []
-            lines = fastq.readlines()
-            for i, line in enumerate(lines):
-                if (i + 1) % 4 == 0:
-                    score_lines.append(line.strip())
-
-            res = pool.map(
-                self.score_getter,
-                [
-                    score_lines[i : i + self.chunk_size]
-                    for i in range(0, len(score_lines), self.chunk_size)
-                ],
-            )
-
-            score_list = [np.array(result[0]) for result in res]
-            pos_list = [np.array(result[1]) for result in res]
-            arr1 = np.array(
-                [
-                    np.pad(
-                        row, (0, len(max(score_list, key=len)) - len(row)), "constant"
-                    )
-                    for row in score_list
-                ]
-            )
-            arr2 = np.array(
-                [
-                    np.pad(
-                        row, (0, len(max(score_list, key=len)) - len(row)), "constant"
-                    )
-                    for row in pos_list
-                ]
-            )
-            scores_summed = np.sum(arr1, axis=0).tolist()
-            pos_summed = np.sum(arr2, axis=0).tolist()
-            output = [
-                score_sum / pos_sum
-                for score_sum, pos_sum in zip(scores_summed, pos_summed)
-            ]
-
-    def line_walker_client(lines):
-        """
-        Walks through the lines the given input
-        :param file:
-        """
-        pos_scores = []
-        pos_counts = []
-        pos_dict = {}
-        for line in lines:
-            for i in range(len(line)):
-                if len(pos_scores) > i:
-                    pos_dict[i] = pos_dict[i] + 1
-                    pos_counts[i] += 1
-                    pos_scores[i] += ord(line[i]) - 33
-                else:
-                    pos_dict[i] = 1
-                    pos_counts.append(1)
-                    pos_scores.append(ord(line[i]) - 33)
-
-        return pos_scores
-
-    def get_res_server(res):
-        score_list = [np.array(result[0]) for result in res]
-        pos_list = [np.array(result[1]) for result in res]
-        arr1 = np.array(
-            [
-                np.pad(row, (0, len(max(score_list, key=len)) - len(row)), "constant")
-                for row in score_list
-            ]
-        )
-        arr2 = np.array(
-            [
-                np.pad(row, (0, len(max(score_list, key=len)) - len(row)), "constant")
-                for row in pos_list
-            ]
-        )
-        scores_summed = np.sum(arr1, axis=0).tolist()
-        pos_summed = np.sum(arr2, axis=0).tolist()
-        output = [
-            score_sum / pos_sum for score_sum, pos_sum in zip(scores_summed, pos_summed)
-        ]
-        return output
-
-    def read_lines(file):
-        """
-        Walks through the lines the given input
-        :param file:
-        """
-        with open(file) as fastq:
-            score_lines = []
-            lines = fastq.readlines()
-            for i, line in enumerate(lines):
-                if (i + 1) % 4 == 0:
-                    score_lines.append(line.strip())
-            return score_lines
-
-    def work_division(self, lines, chunk_size):
-        res = [lines[i : i + chunk_size] for i in range(0, len(lines), chunk_size)]
-        return res
-
-    def work_division_server(lines, chunk_size):
-        res = [lines[i : i + chunk_size] for i in range(0, len(lines), chunk_size)]
-        return res
-
-    def calc_per_file(self, work):
-        lines_for_each = work
-        cores = self.cores
-        chunk = self.chunk_size
-        pool = mp.Pool(cores)
-        final = []
-        for line_list in lines_for_each:
-            work = self.work_division(line_list, chunk)
-            res = pool.map(self.score_getter, work)
-            score_list = [np.array(result[0]) for result in res]
-            pos_list = [np.array(result[1]) for result in res]
-            arr1 = np.array(
-                [
-                    np.pad(
-                        row, (0, len(max(score_list, key=len)) - len(row)), "constant"
-                    )
-                    for row in score_list
-                ]
-            )
-            arr2 = np.array(
-                [
-                    np.pad(
-                        row, (0, len(max(score_list, key=len)) - len(row)), "constant"
-                    )
-                    for row in pos_list
-                ]
-            )
-            scores_summed = np.sum(arr1, axis=0).tolist()
-            pos_summed = np.sum(arr2, axis=0).tolist()
-            output = [
-                score_sum / pos_sum
-                for score_sum, pos_sum in zip(scores_summed, pos_summed)
-            ]
-            final.append(output)
-
-        return final
-
-    def score_getter(self, lines):
-        """
-        Gets the scores and indexes for lines
-        :param lines:
-        :return:
-        """
-        pos_scores = []
-        pos_counts = []
-        pos_dict = {}
-        for line in lines:
-            for i in range(len(line)):
-                if len(pos_scores) > i:
-                    pos_dict[i] = pos_dict[i] + 1
-                    pos_counts[i] += 1
-                    pos_scores[i] += ord(line[i]) - 33
-                else:
-                    pos_dict[i] = 1
-                    pos_counts.append(1)
-                    pos_scores.append(ord(line[i]) - 33)
-
-        return pos_scores, pos_counts
-
-    def score_getter_client(lines):
-        """
-        Gets the scores and indexes for lines
-        :param lines:
-        :return:
-        """
-        pos_scores = []
-        pos_counts = []
-        pos_dict = {}
-        for line in lines:
-            for i in range(len(line)):
-                if len(pos_scores) > i:
-                    pos_dict[i] = pos_dict[i] + 1
-                    pos_counts[i] += 1
-                    pos_scores[i] += ord(line[i]) - 33
-                else:
-                    pos_dict[i] = 1
-                    pos_counts.append(1)
-                    pos_scores.append(ord(line[i]) - 33)
-
-        return pos_scores, pos_counts
-
-    def score_getter_line(line):
-        """
-        Gets the scores and indexes for lines
-        :param lines:
-        :return:
-        """
-        pos_scores = []
-        pos_counts = []
-        pos_dict = {}
+    pos_scores = []
+    pos_counts = []
+    pos_dict = {}
+    for line in lines:
         for i in range(len(line)):
             if len(pos_scores) > i:
                 pos_dict[i] = pos_dict[i] + 1
@@ -345,100 +136,128 @@ class AvgCalc:
                 pos_counts.append(1)
                 pos_scores.append(ord(line[i]) - 33)
 
-        return pos_scores
+    return pos_scores
 
-    def line_worker(self, work):
-        res = self.score_getter(work)
-        score_list = [np.array(result[0]) for result in res]
-        pos_list = [np.array(result[1]) for result in res]
-        arr1 = np.array(
-            [
-                np.pad(row, (0, len(max(score_list, key=len)) - len(row)), "constant")
-                for row in score_list
-            ]
-        )
-        arr2 = np.array(
-            [
-                np.pad(row, (0, len(max(score_list, key=len)) - len(row)), "constant")
-                for row in pos_list
-            ]
-        )
-        scores_summed = np.sum(arr1, axis=0).tolist()
-        pos_summed = np.sum(arr2, axis=0).tolist()
-        output = [
-            score_sum / pos_sum for score_sum, pos_sum in zip(scores_summed, pos_summed)
+
+def get_res_server(res):
+    """ "Get results for server"""
+    score_list = [np.array(result[0]) for result in res]
+    pos_list = [np.array(result[1]) for result in res]
+    arr1 = np.array(
+        [
+            np.pad(row, (0, len(max(score_list, key=len)) - len(row)), "constant")
+            for row in score_list
         ]
-        return output
-
-    def files_handler(self, files):
-        file_line_list = []
-        for file in files:
-            with open(file) as fastq:
-                lines = fastq.readlines()
-                file_line_list.append(
-                    [line.strip() for i, line in enumerate(lines) if (i + 1) % 4 == 0]
-                )
-
-        return file_line_list
-
-    def calc(self, res):
-        score_list = [np.array(result[0]) for result in res]
-        pos_list = [np.array(result[1]) for result in res]
-        arr1 = np.array(
-            [
-                np.pad(row, (0, len(max(score_list, key=len)) - len(row)), "constant")
-                for row in score_list
-            ]
-        )
-        arr2 = np.array(
-            [
-                np.pad(row, (0, len(max(score_list, key=len)) - len(row)), "constant")
-                for row in pos_list
-            ]
-        )
-        scores_summed = np.sum(arr1, axis=0).tolist()
-        pos_summed = np.sum(arr2, axis=0).tolist()
-        output = [
-            score_sum / pos_sum for score_sum, pos_sum in zip(scores_summed, pos_summed)
+    )
+    arr2 = np.array(
+        [
+            np.pad(row, (0, len(max(score_list, key=len)) - len(row)), "constant")
+            for row in pos_list
         ]
-        return output
+    )
+    scores_summed = np.sum(arr1, axis=0).tolist()
+    pos_summed = np.sum(arr2, axis=0).tolist()
+    output = [
+        score_sum / pos_sum for score_sum, pos_sum in zip(scores_summed, pos_summed)
+    ]
+    return output
 
-    def calc_from_file(score_list, pos_list):
-        print(score_list)
-        arr1 = np.array(
-            [
-                np.pad(row, (0, len(max(score_list, key=len)) - len(row)), "constant")
-                for row in score_list
-            ]
-        )
-        arr2 = np.array(
-            [
-                np.pad(row, (0, len(max(score_list, key=len)) - len(row)), "constant")
-                for row in pos_list
-            ]
-        )
-        scores_summed = np.sum(arr1, axis=0).tolist()
-        pos_summed = np.sum(arr2, axis=0).tolist()
-        output = [
-            score_sum / pos_sum for score_sum, pos_sum in zip(scores_summed, pos_summed)
+
+def read_lines(file):
+    """
+    Walks through the lines the given input
+    :param file:
+    """
+    with open(file, encoding="UTF-8") as fastq:
+        score_lines = []
+        lines = fastq.readlines()
+        for i, line in enumerate(lines):
+            if (i + 1) % 4 == 0:
+                score_lines.append(line.strip())
+        return score_lines
+
+
+def work_division_server(lines, chunk_size):
+    """Divides the work in server setting"""
+    res = [lines[i : i + chunk_size] for i in range(0, len(lines), chunk_size)]
+    return res
+
+
+def score_getter_client(lines):
+    """
+    Gets the scores and indexes for lines
+    :param lines:
+    :return:
+    """
+    pos_scores = []
+    pos_counts = []
+    pos_dict = {}
+    for line in lines:
+        for i in range(len(line)):
+            if len(pos_scores) > i:
+                pos_dict[i] = pos_dict[i] + 1
+                pos_counts[i] += 1
+                pos_scores[i] += ord(line[i]) - 33
+            else:
+                pos_dict[i] = 1
+                pos_counts.append(1)
+                pos_scores.append(ord(line[i]) - 33)
+
+    return pos_scores, pos_counts
+
+
+def calc_from_file(score_list, pos_list):
+    """Calculate from file."""
+    print(score_list)
+    arr1 = np.array(
+        [
+            np.pad(row, (0, len(max(score_list, key=len)) - len(row)), "constant")
+            for row in score_list
         ]
-        return output
+    )
+    arr2 = np.array(
+        [
+            np.pad(row, (0, len(max(score_list, key=len)) - len(row)), "constant")
+            for row in pos_list
+        ]
+    )
+    scores_summed = np.sum(arr1, axis=0).tolist()
+    pos_summed = np.sum(arr2, axis=0).tolist()
+    output = [
+        score_sum / pos_sum for score_sum, pos_sum in zip(scores_summed, pos_summed)
+    ]
+    return output
 
-    def write_output(self, output):
-        """Write scores to csv file."""
-        df = pd.DataFrame(output)
-        if self.csvfile:
-            df.to_csv(self.csvfile, header=False)
+
+def score_getter_line(line):
+    """
+    Gets the scores and indexes for lines
+    :param lines:
+    :return:
+    """
+    pos_scores = []
+    pos_counts = []
+    pos_dict = {}
+    for i in range(len(line)):
+        if len(pos_scores) > i:
+            pos_dict[i] = pos_dict[i] + 1
+            pos_counts[i] += 1
+            pos_scores[i] += ord(line[i]) - 33
         else:
-            df.to_csv(sys.stdout, header=False)
+            pos_dict[i] = 1
+            pos_counts.append(1)
+            pos_scores.append(ord(line[i]) - 33)
 
-    def write_output_server(output, output_file):
-        """Write scores to csv file."""
-        df = pd.DataFrame(output)
-        if output_file:
-            df.to_csv(output_file, header=False)
-        else:
-            df.to_csv(sys.stdout, header=False)
+    return pos_scores
+
+
+def write_output_server(output, output_file):
+    """Write scores to csv file."""
+    df = pd.DataFrame(output)
+    if output_file:
+        df.to_csv(output_file, header=False)
+    else:
+        df.to_csv(sys.stdout, header=False)
 
 
 # MAIN
@@ -446,27 +265,31 @@ def main():
     """Main function"""
     args = arg_parse()
     if args.c:
-        with open(args.seq, "r+") as f:
-            with open(f"scores/{str(args.seq)[4:]}_output", "a+") as output_f:
+        with open(args.seq, "r+", encoding="UTF-8") as f:
+            with open(
+                f"scores/{str(args.seq)[4:]}_output", "a+", encoding="UTF-8"
+            ) as output_f:
                 for line in f:
-                    output_f.write(f"{AvgCalc.score_getter_line(line.strip())}\n")
+                    output_f.write(f"{score_getter_line(line.strip())}\n")
 
     elif args.s:
         lines = []
         counter = 0
-        with open(args.input[0]) as f:
+        with open(args.input[0], encoding="UTF-8") as f:
             for i, line in enumerate(f):
                 if (i + 1) % 4 == 0:
                     lines.append(line)
                 if len(lines) == args.chunksize:
-                    with open(f"work/work_{counter}.txt", "w+") as work_f:
+                    with open(
+                        f"work/work_{counter}.txt", "w+", encoding="UTF-8"
+                    ) as work_f:
                         for line in lines:
                             work_f.write(f"{line}")
                     lines = []
                     counter += 1
 
         if len(lines) != 0:
-            with open(f"work/work_{counter}", "w+") as work_f:
+            with open(f"work/work_{counter}", "w+", encoding="UTF-8") as work_f:
                 for line in lines:
                     work_f.write(f"{line}")
 
@@ -476,7 +299,7 @@ def main():
         sums = []
         positions = []
         for file in files:
-            with open(file, "r+") as f:
+            with open(file, "r+", encoding="UTF-8") as f:
                 for line in f:
                     line = line[1:-2].split(",")
                     scores = [int(score) for score in line]
@@ -492,7 +315,7 @@ def main():
                                 positions[i] += 1
 
         output = [score_sum / pos_sum for score_sum, pos_sum in zip(sums, positions)]
-        AvgCalc.write_output_server(output, args.calc_out)
+        write_output_server(output, args.calc_out)
 
 
 if __name__ == "__main__":

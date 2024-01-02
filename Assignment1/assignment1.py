@@ -20,18 +20,40 @@ import numpy as np
 # FUNCTIONS
 def arg_parse():
     """Parse arguments"""
-    argparser = ap.ArgumentParser(description="Script voor Opdracht 1 van Big Data Computing")
-    argparser.add_argument("-n", action="store",
-                           dest="n", required=True, type=int,
-                           help="Aantal cores om te gebruiken.")
-    argparser.add_argument("-ch", action="store",
-                           dest="chunks", required=True, type=int,
-                           help="Aantal chunksize om te gebruiken.")
-    argparser.add_argument("-o", action="store", dest="csvfile", type=Path,
-                           required=False,
-                           help="CSV file om de output in op te slaan. Default is output naar terminal STDOUT")
-    argparser.add_argument("fastq_files", action="store", type=Path, nargs='+',
-                           help="Minstens 1 Illumina Fastq Format file om te verwerken")
+    argparser = ap.ArgumentParser(
+        description="Script voor Opdracht 1 van Big Data Computing"
+    )
+    argparser.add_argument(
+        "-n",
+        action="store",
+        dest="n",
+        required=True,
+        type=int,
+        help="Aantal cores om te gebruiken.",
+    )
+    argparser.add_argument(
+        "-ch",
+        action="store",
+        dest="chunks",
+        required=True,
+        type=int,
+        help="Aantal chunksize om te gebruiken.",
+    )
+    argparser.add_argument(
+        "-o",
+        action="store",
+        dest="csvfile",
+        type=Path,
+        required=False,
+        help="CSV file om de output in op te slaan. Default is output naar terminal STDOUT",
+    )
+    argparser.add_argument(
+        "fastq_files",
+        action="store",
+        type=Path,
+        nargs="+",
+        help="Minstens 1 Illumina Fastq Format file om te verwerken",
+    )
     return argparser.parse_args()
 
 
@@ -68,18 +90,38 @@ class AvgCalc:
                 if (i + 1) % 4 == 0:
                     score_lines.append(line.strip())
 
-            res = pool.map(self.score_getter, [score_lines[i:i + self.chunk_size]
-                                               for i in range(0, len(score_lines), self.chunk_size)])
+            res = pool.map(
+                self.score_getter,
+                [
+                    score_lines[i : i + self.chunk_size]
+                    for i in range(0, len(score_lines), self.chunk_size)
+                ],
+            )
 
             score_list = [np.array(result[0]) for result in res]
             pos_list = [np.array(result[1]) for result in res]
             arr1 = np.array(
-                [np.pad(row, (0, len(max(score_list, key=len)) - len(row)), 'constant') for row in score_list])
+                [
+                    np.pad(
+                        row, (0, len(max(score_list, key=len)) - len(row)), "constant"
+                    )
+                    for row in score_list
+                ]
+            )
             arr2 = np.array(
-                [np.pad(row, (0, len(max(score_list, key=len)) - len(row)), 'constant') for row in pos_list])
+                [
+                    np.pad(
+                        row, (0, len(max(score_list, key=len)) - len(row)), "constant"
+                    )
+                    for row in pos_list
+                ]
+            )
             scores_summed = np.sum(arr1, axis=0).tolist()
             pos_summed = np.sum(arr2, axis=0).tolist()
-            output = [score_sum / pos_sum for score_sum, pos_sum in zip(scores_summed, pos_summed)]
+            output = [
+                score_sum / pos_sum
+                for score_sum, pos_sum in zip(scores_summed, pos_summed)
+            ]
             self.write_output(output)
 
     def score_getter(self, lines):
@@ -96,7 +138,7 @@ class AvgCalc:
                 if len(pos_scores) > i:
                     pos_dict[i] = pos_dict[i] + 1
                     pos_counts[i] += 1
-                    pos_scores[i] += (ord(line[i]) - 33)
+                    pos_scores[i] += ord(line[i]) - 33
                 else:
                     pos_dict[i] = 1
                     pos_counts.append(1)
