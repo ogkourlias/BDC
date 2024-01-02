@@ -6,14 +6,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=2
 
-source /commons/conda/conda_load.sh
+source ./venvs/bdc/bin/activate
+num_cores=2
 
-input_file="SRR22537909.fasta"
-output_csv="output.csv"
-num_cores=4
-
-mkdir work
-mkdir scores
-python3 assignment3.py -s -i $input_file -ch 50 -n 4
-find work/ -type f -print | parallel -j $num_cores python3 assignment3.py -c -seq {}
-python3 assignment3.py -calc -co $output_csv -if "$(find scores/ -type f -exec echo {} \;)"
+parallel -j 2 python assignment6.py -f "data/{}/chr21.vcf.gz" -r data/ref_vcf/chr21.vcf.gz -ih data/ref_vcf/chr21_headers.txt -ch data/ref_vcf/chr21_headers.txt -chr chr21 -o output/{}.csv -n 1000 ::: subset1 subset2

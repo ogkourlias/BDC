@@ -17,7 +17,6 @@ import sys
 import argparse
 import tabix
 import gzip
-from enum import Enum
 import numpy as np
 from scipy.stats import spearmanr, pearsonr
 
@@ -45,12 +44,6 @@ def arg_parse():
     parser.add_argument("-o", "--output", type=str)
     parser.add_argument("-n", "--chunk", type=int)
     return parser.parse_args()
-
-
-class Allele(Enum):
-    ALT = 1
-    REF = 2
-
 
 def open_tbi(input_file):
 
@@ -319,7 +312,6 @@ def record_extract(i_record, r_record, head_idx):
                 vals_i = gt_i.replace("|", "/").split("/")
                 vals_r = gt_r.replace("|", "/").split("/")
 
-                print(val_dict_i)
                 # Check whether genotypes are the same between files.
                 # Also check whether they are not missing genotypes.
                 if vals_i[0] != "." and vals_r[0] != ".":
@@ -506,7 +498,7 @@ def main(args):
     # Get args.
     args = arg_parse()
     # Get headers
-    headers = header_subset_gtex(args.input_header, args.comp_header)
+    headers = header_subset(args.input_header, args.comp_header)
     # Perform comparison and write output.
     process_file(args.chr, args.file, args.reference, headers, args.output, args.chunk)
     # FINISH
