@@ -2,10 +2,17 @@
 
 """
 As Server:
-assignment2.py -s -ch <chunksize> -i <input_fasta_path> -o <output_csv_path>
+./assignment2.py -s <fasta/fastq file> --host <host adress> --port <portnum> --chunks <chunk size> -o <output CSV filename>
+
+Example:
+./assignment2.py -s ../Assignment3/SRR22537909.fasta --host nuc205 --port 2403 --chunks 1000 -o test.csv
 
 As Client:
-assignment2.py -c -n <amount_of_cores>"""
+./assignment2.py -c --host <host adress> --port <portnum> -n <corenum>
+
+Example:
+./assignment2.py -c --host nuc205 --port 2403 -n 2
+"""
 
 # METADATA VARIABLES
 __author__ = "Orfeas Gkourlias"
@@ -14,10 +21,11 @@ __version__ = "0.1"
 
 # IMPORTS
 import sys
+import time
 import argparse as ap
 from pathlib import Path
 import multiprocessing as mp
-from multiprocessing.managers import BaseManager, SyncManager
+from multiprocessing.managers import BaseManager, SyncManager, queue
 import pandas as pd
 import numpy as np
 
@@ -26,7 +34,6 @@ import numpy as np
 POISONPILL = "MEMENTOMORI"
 ERROR = "DOH"
 IP = ""
-PORTNUM = 5381
 AUTHKEY = b"whathasitgotinitspocketsesss?"
 data = ["Always", "look", "on", "the", "bright", "side", "of", "life!"]
 
@@ -53,9 +60,9 @@ def make_server_manager(port, authkey):
     return manager
 
 
-def runserver(fn, data, output_f):
+def runserver(fn, data, output_f, portnum):
     # Start a shared manager server and access its queues
-    manager = make_server_manager(PORTNUM, b"whathasitgotinitspocketsesss?")
+    manager = make_server_manager(portnum, b"whathasitgotinitspocketsesss?")
     shared_job_q = manager.get_job_q()
     shared_result_q = manager.get_result_q()
 
@@ -90,7 +97,6 @@ def runserver(fn, data, output_f):
     final = AvgCalc.get_res_server(results)
     AvgCalc.write_output_server(final, output_f)
 
-
 def make_client_manager(ip, port, authkey):
     """Create a manager for a client. This manager connects to a server on the
     given address and exposes the get_job_q and get_result_q methods for
@@ -116,8 +122,8 @@ def capitalize(word):
     return word.upper()
 
 
-def runclient(num_processes):
-    manager = make_client_manager(IP, PORTNUM, AUTHKEY)
+def runclient(num_processes, ip, portnum, authkey):
+    manager = make_client_manager(ip, portnum, authkey)
     job_q = manager.get_job_q()
     result_q = manager.get_result_q()
     run_workers(job_q, result_q, num_processes)
@@ -158,75 +164,22 @@ def peon(job_q, result_q):
 
 
 def arg_parse():
-    # Generic args.
-    argparser = ap.ArgumentParser(
-        description="Script voor Opdracht 2 van Big Data Computing;  Calculate PHRED scores over the network."
-    )
+    argparser = ap.ArgumentParser(description="Script voor Opdracht 2 van Big Data Computing;  Calculate PHRED scores over the network.")
     mode = argparser.add_mutually_exclusive_group(required=True)
-    mode.add_argument(
-        "-s",
-        action="store_true",
-        help="Run the program in Server mode; see extra options needed below",
-    )
-    mode.add_argument(
-        "-c",
-        action="store_true",
-        help="Run the program in Client mode; see extra options needed below",
-    )
+    mode.add_argument("-s", action="store_true", help="Run the program in Server mode; see extra options needed below")
+    mode.add_argument("-c", action="store_true", help="Run the program in Client mode; see extra options needed below")
+    server_args = argparser.add_argument_group(title="Arguments when run in server mode")
+    server_args.add_argument("-o", action="store", dest="csvfile", type=Path,
+                        required=False, help="CSV file om de output in op te slaan. Default is output naar terminal STDOUT")
+    server_args.add_argument("fastq_files", action="store", type=Path, nargs='*', help="Minstens 1 Illumina Fastq Format file om te verwerken")
+    server_args.add_argument("--chunks", action="store", type=int)
 
-    # Server args.
-    server_args = argparser.add_argument_group(
-        title="Arguments when run in server mode"
-    )
-
-    server_args.add_argument(
-        "-o",
-        action="store",
-        dest="output",
-        type=Path,
-        required=False,
-        help="CSV file om de output in op te slaan. Default is output naar terminal STDOUT",
-    )
-
-    server_args.add_argument(
-        "-i",
-        action="store",
-        dest="input",
-        type=Path,
-        nargs="*",
-        help="Minstens 1 Illumina Fastq Format file om te verwerken",
-    )
-
-    server_args.add_argument("-ch", action="store", dest="chunksize", type=int)
-
-    # Client args.
-    client_args = argparser.add_argument_group(
-        title="Arguments when run in client mode"
-    )
-    client_args.add_argument(
-        "-n",
-        action="store",
-        dest="n",
-        required=False,
-        type=int,
-        help="Aantal cores om te gebruiken per host.",
-    )
-
-    client_args.add_argument(
-        "-hn",
-        action="store",
-        dest="host",
-        type=str,
-        help="The hostname where the Server is listening",
-    )
-
-    client_args.add_argument(
-        "-p",
-        action="store",
-        dest="port",
-        type=int,
-        help="The port on which the Server is listening",
-    )
+    client_args = argparser.add_argument_group(title="Arguments when run in client mode")
+    client_args.add_argument("-n", action="store",
+                        dest="n", required=False, type=int,
+                        help="Aantal cores om te gebruiken per host.")
+    client_args.add_argument("--host", action="store", type=str, help="The hostname where the Server is listening")
+    client_args.add_argument("--port", action="store", type=int, help="The port on which the Server is listening")
     return argparser.parse_args()
 
 
@@ -236,11 +189,11 @@ class AvgCalc:
     """
 
     def __init__(self, args):
-        self.files = args.input
+        self.files = args.fastq_files
         self.chunk_size = args.chunksize
         self.cores = args.n
-        self.fastq_files = args.input
-        self.csvfile = args.output
+        self.fastq_files = args.fastq_files
+        self.csvfile = args.csvfile
 
     def calculate(self, files):
         """
@@ -519,14 +472,15 @@ def main():
     """Main function"""
     args = arg_parse()
     if args.c:
-        client = mp.Process(target=runclient, args=(args.n,))
+        client = mp.Process(
+            target=runclient, args=(args.n, args.host, args.port, AUTHKEY))
         client.start()
         client.join()
     elif args.s:
-        lines = AvgCalc.read_lines(args.input[0])
-        work = AvgCalc.work_division_server(lines, args.chunksize)
+        lines = AvgCalc.read_lines(args.fastq_files[0])
+        work = AvgCalc.work_division_server(lines, args.chunks)
         server = mp.Process(
-            target=runserver, args=(AvgCalc.line_walker_client, work, args.output)
+            target=runserver, args=(AvgCalc.line_walker_client, work, args.csvfile, args.port)
         )
         server.start()
         time.sleep(1)
