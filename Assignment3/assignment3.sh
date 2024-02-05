@@ -16,6 +16,6 @@ mkdir work
 mkdir scores
 python3 assignment3.py -s -i $input_file -ch 50 -n 4
 find work/ -type f -print | parallel -j $num_cores python3 assignment3.py -c -seq {}
-python3 assignment3.py -calc -co $output_csv -if "$(find scores/ -type f -exec echo {} \;)"
+python3 assignment3.py -calc -if "$(find scores/ -type f -exec echo {} \;)"
 rm -rf scores
 rm -rf work
